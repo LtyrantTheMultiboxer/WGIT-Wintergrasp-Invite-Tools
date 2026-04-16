@@ -1,5 +1,10 @@
 # WGInvite-Master
 
+Download [here](https://github.com/LtyrantTheMultiboxer/WGInvite-Master/releases/download/WGInviteMaster/WGInvite.rar)
+
+<img width="148" height="63" alt="Wirgrasp timer" src="https://github.com/user-attachments/assets/1fa412e9-34eb-4664-8a83-d197fc9a9c44" />
+
+
 WGInvite Master v3.7
 
 Build: Stable v3.7 for WotLK 3.3.5
