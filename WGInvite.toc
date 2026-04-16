@@ -1,0 +1,9 @@
+## Interface: 30300
+## Title: WGInvite Master
+## Notes: Ultimate 3.3.5 Commander Suite
+## Author: xLT69x
+## Version: 3.7
+## SavedVariables: WGInviteDB
+
+embeds.xml
+WGInvite.lua
