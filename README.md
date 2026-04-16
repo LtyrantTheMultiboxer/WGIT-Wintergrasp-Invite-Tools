@@ -55,8 +55,5 @@ Commands
 Right-Click - Click Timer Window to Lock/Unlock
 R-Click Icon - Instant Mass Guild Invite
 
-WGInvite/
-├── Libs/ # Ace3 Libraries
-├── WGInvite.toc # Addon Metadata
 
-Created for the 3.3.5 Private Server Community.
+Created for the 3.3.5 Warmane Private Server Community.
