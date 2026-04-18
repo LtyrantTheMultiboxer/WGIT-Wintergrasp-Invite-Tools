@@ -14,7 +14,7 @@ end
 -- --- 2. GLASS UI TIMER FRAME ---
 local function CreateStyledTimer()
     local f = CreateFrame("Frame", "WGInviteTimerFrame", UIParent)
-    f:SetSize(180, 85) -- Increased height to fit the new toggle button
+    f:SetSize(180, 85) -- Height adjusted for toggle button
     f:SetPoint("CENTER")
     f:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8X8",
@@ -25,7 +25,7 @@ local function CreateStyledTimer()
     f:SetMovable(true)
     f:EnableMouse(true)
     f:SetResizable(true)
-    f:SetMinResize(120, 70)
+    f:SetMinResize(120, 75)
     f:RegisterForDrag("LeftButton")
     
     -- Resize Handle
@@ -36,15 +36,17 @@ local function CreateStyledTimer()
     f.rb:SetScript("OnMouseDown", function() if not WGInvite.db.profile.timerLocked then f:StartSizing() end end)
     f.rb:SetScript("OnMouseUp", function() f:StopMovingOrSizing() end)
 
-    -- Drag Logic
+    -- Interaction Scripts
     f:SetScript("OnDragStart", function(self) if not WGInvite.db.profile.timerLocked then self:StartMoving() end end)
     f:SetScript("OnDragStop", f.StopMovingOrSizing)
     
-    -- Right-Click Lock
+    -- Right-Click to Lock Toggle
     f:SetScript("OnMouseDown", function(self, button)
         if button == "RightButton" then
             WGInvite.db.profile.timerLocked = not WGInvite.db.profile.timerLocked
             WGInvite:UpdateLockState()
+            local state = WGInvite.db.profile.timerLocked and "|cffff0000Locked|r" or "|cff00ff00Unlocked|r"
+            WGInvite:Print("Timer Window " .. state)
         end
     end)
 
@@ -56,11 +58,15 @@ local function CreateStyledTimer()
     f.time = f:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
     f.time:SetPoint("CENTER", 0, 5)
 
-    -- INTEGRATED TOGGLE BUTTON (Styled to match Glass UI)
+    -- INTEGRATED TOGGLE BUTTON (From AutoJoinWG Logic)
     f.toggle = CreateFrame("Button", nil, f)
     f.toggle:SetSize(120, 20)
     f.toggle:SetPoint("BOTTOM", 0, 10)
-    f.toggle:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 8})
+    f.toggle:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8X8", 
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", 
+        edgeSize = 8
+    })
     f.toggle:SetBackdropColor(0, 0, 0, 0.5)
     f.toggle.text = f.toggle:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     f.toggle.text:SetPoint("CENTER")
@@ -70,11 +76,12 @@ local function CreateStyledTimer()
         WGInvite:UpdateLockButtonText()
     end)
     
+    -- Text/Button Scaling Logic
     f:SetScript("OnSizeChanged", function(self, width, height)
         local scale = height / 85
         self.title:SetFont("Fonts\\FRIZQT__.TTF", math.max(7, 9 * scale), "OUTLINE")
         self.time:SetFont("Fonts\\FRIZQT__.TTF", math.max(11, 16 * scale), "OUTLINE")
-        self.toggle:SetSize(100 * scale, 18 * scale)
+        self.toggle:SetSize(110 * scale, 18 * scale)
     end)
 
     local lastUpdate = 0
@@ -92,7 +99,7 @@ local function CreateStyledTimer()
     return f
 end
 
--- --- 3. DEFAULTS & OPTIONS ---
+-- --- 3. DEFAULTS ---
 local defaults = {
     profile = {
         keyword = "inv, invite, wg",
@@ -107,17 +114,51 @@ local defaults = {
     }
 }
 
--- [Options table remains mostly the same as v3.8, just updated version name]
+-- --- 4. OPTIONS TABLE ---
 local options = {
     name = "WGInvite Master Build v3.9",
     handler = WGInvite,
     type = "group",
     args = {
-        -- ... (same as v3.8) ...
-    }
+        appearance = {
+            type = "group", name = "Visuals", inline = true, order = 1,
+            args = {
+                showTimerFrame = { type = "toggle", name = "Show Timer Window", order = 1, get = function() return WGInvite.db.profile.showTimerFrame end, set = function(_, v) WGInvite.db.profile.showTimerFrame = v; if v then WGInvite.TimerFrame:Show() else WGInvite.TimerFrame:Hide() end end },
+                timerLocked = { type = "toggle", name = "Lock Window", order = 2, get = function() return WGInvite.db.profile.timerLocked end, set = function(_, v) WGInvite.db.profile.timerLocked = v; WGInvite:UpdateLockState() end },
+                timerOpacity = { type = "range", name = "Opacity", min = 0, max = 1, step = 0.1, order = 3, get = function() return WGInvite.db.profile.timerOpacity end, set = function(_, v) WGInvite.db.profile.timerOpacity = v; local c = WGInvite.db.profile.timerColor; WGInvite.TimerFrame:SetBackdropColor(c.r, c.g, c.b, v) end },
+                timerColor = { type = "color", name = "Window Color", order = 4, get = function() local c = WGInvite.db.profile.timerColor; return c.r, c.g, c.b end, set = function(_, r, g, b) WGInvite.db.profile.timerColor = {r=r, g=g, b=b}; WGInvite.TimerFrame:SetBackdropColor(r, g, b, WGInvite.db.profile.timerOpacity) end },
+            },
+        },
+        automation = {
+            type = "group", name = "Automation", inline = true, order = 2,
+            args = {
+                autoJoinWG = { type = "toggle", name = "Auto-Join WG Queue", order = 1, get = function() return WGInvite.db.profile.autoJoinWG end, set = function(_, v) WGInvite.db.profile.autoJoinWG = v; WGInvite:UpdateLockButtonText() end },
+                autoRaid = { type = "toggle", name = "Auto-Convert Raid", order = 2, get = function() return WGInvite.db.profile.autoRaid end, set = function(_, v) WGInvite.db.profile.autoRaid = v end },
+                autoAccept = { type = "toggle", name = "Auto-Accept (Guild/Friends)", order = 3, get = function() return WGInvite.db.profile.autoAccept end, set = function(_, v) WGInvite.db.profile.autoAccept = v end },
+                autoRelease = { type = "toggle", name = "Auto-Release in BG", order = 4, get = function() return WGInvite.db.profile.autoRelease end, set = function(_, v) WGInvite.db.profile.autoRelease = v end },
+                declineDuels = { type = "toggle", name = "Auto-Decline Duels", order = 5, get = function() return WGInvite.db.profile.declineDuels end, set = function(_, v) WGInvite.db.profile.declineDuels = v end },
+            },
+        },
+        tools = {
+            type = "group", name = "Raid Tools", inline = true, order = 3,
+            args = {
+                keyword = { type = "input", name = "Keywords", order = 1, get = function() return WGInvite.db.profile.keyword end, set = function(_, v) WGInvite.db.profile.keyword = v end },
+                massGuild = { type = "execute", name = "Mass Invite Guild", order = 2, func = "DoMassInvite" },
+                massFriends = { type = "execute", name = "Mass Invite Friends", order = 3, func = "DoFriendsInvite" },
+                disbandRaid = { type = "execute", name = "|cffff0000Disband Raid (Nuke)|r", order = 4, confirm = true, func = "DoDisbandRaid" },
+            },
+        },
+        lists = {
+            type = "group", name = "Management Lists", inline = true, order = 4,
+            args = {
+                assistants = { type = "input", name = "Auto-Assistants", multiline = 5, width = "full", order = 1, get = function() local n={}; for k in pairs(WGInvite.db.profile.assistants) do table.insert(n,k) end; table.sort(n); return table.concat(n,"\n") end, set = function(_, v) wipe(WGInvite.db.profile.assistants); for m in v:gmatch("%S+") do WGInvite.db.profile.assistants[m:gsub("^%l", string.upper)] = true end end },
+                blacklist = { type = "input", name = "Blacklist", multiline = 5, width = "full", order = 2, get = function() local n={}; for k in pairs(WGInvite.db.profile.blacklist) do table.insert(n,k) end; table.sort(n); return table.concat(n,"\n") end, set = function(_, v) wipe(WGInvite.db.profile.blacklist); for m in v:gmatch("%S+") do WGInvite.db.profile.blacklist[m:gsub("^%l", string.upper)] = true end end },
+            },
+        },
+    },
 }
 
--- --- 4. CORE ENGINE ---
+-- --- 5. CORE ENGINE ---
 
 function WGInvite:OnInitialize()
     self.db = LibStub("AceDB-3.0"):New("WGInviteDB", defaults, true)
@@ -133,7 +174,6 @@ function WGInvite:OnInitialize()
     
     local c = self.db.profile.timerColor
     self.TimerFrame:SetBackdropColor(c.r, c.g, c.b, self.db.profile.timerOpacity)
-    
     if not self.db.profile.showTimerFrame then self.TimerFrame:Hide() end
 
     local LDB = LibStub("LibDataBroker-1.1"):NewDataObject("WGInvite", {
@@ -146,9 +186,11 @@ function WGInvite:OnInitialize()
             t:AddLine(" ")
             t:AddLine("|cffeda55fLeft-Click:|r Open Settings")
             t:AddLine("|cffeda55fRight-Click Timer:|r Toggle Lock")
+            t:AddLine("|cffeda55f/wgreset:|r Reset window to center")
         end,
     })
     LibStub("LibDBIcon-1.0"):Register("WGInvite", LDB, self.db.profile.minimap)
+    self:Print("v3.9 Master Build Loaded. /wgi for settings.")
 end
 
 function WGInvite:UpdateLockState()
@@ -164,7 +206,7 @@ function WGInvite:UpdateLockButtonText()
 end
 
 function WGInvite:OnEnable()
-    -- REGISTER THE SPECIFIC BATTLEFIELD MANAGER EVENT
+    -- CRITICAL: THE BATTLEFIELD MANAGER EVENT FOR 3.3.5
     self:RegisterEvent("BATTLEFIELD_MGR_QUEUE_INVITE")
     
     self:RegisterEvent("CHAT_MSG_WHISPER")
@@ -175,14 +217,75 @@ function WGInvite:OnEnable()
     self:RegisterEvent("PLAYER_DEAD")
 end
 
--- --- 5. THE CRITICAL JOIN LOGIC (FROM AUTOJOINWG) ---
+-- --- 6. LOGIC FUNCTIONS ---
+
 function WGInvite:BATTLEFIELD_MGR_QUEUE_INVITE()
     if self.db.profile.autoJoinWG then
         BattlefieldMgrQueueInviteResponse(1,1)
         StaticPopup_Hide("BFMGR_INVITED_TO_QUEUE")
         StaticPopup_Hide("BFMGR_INVITED_TO_QUEUE_WARMUP")
-        self:Print("|cff00ff00Auto-Joined Wintergrasp Battlefield!|r")
+        self:Print("|cff00ff00Auto-Joined Wintergrasp!|r")
     end
 end
 
--- [The rest of the functions: DoMassInvite, DoFriendsInvite, DoDisbandRaid, etc. remain here]
+function WGInvite:DoMassInvite()
+    if not IsInGuild() then return end
+    GuildRoster()
+    for i = 1, GetNumGuildMembers() do
+        local n, _, r, l, _, _, _, _, o = GetGuildRosterInfo(i)
+        if o and n ~= UnitName("player") and r <= self.db.profile.maxRank and l >= 80 then
+            if not self.db.profile.blacklist[n] then InviteUnit(n) end
+        end
+    end
+end
+
+function WGInvite:DoFriendsInvite()
+    ShowFriends()
+    for i = 1, GetNumFriends() do
+        local n, l, _, _, o = GetFriendInfo(i)
+        if n and o and not self.db.profile.blacklist[n] and l >= 80 then InviteUnit(n) end
+    end
+end
+
+function WGInvite:CHAT_MSG_WHISPER(_, msg, sender)
+    local name = sender:gsub("-.*", "")
+    if self.db.profile.blacklist[name] then return end
+    for kw in self.db.profile.keyword:gmatch("[^,]+") do
+        local clean = kw:match("^%s*(.-)%s*$"):lower()
+        if clean ~= "" and msg:lower():find(clean, 1, true) then InviteUnit(sender); return end
+    end
+end
+
+function WGInvite:PARTY_MEMBERS_CHANGED()
+    if self.db.profile.autoRaid and GetNumPartyMembers() > 0 and GetNumRaidMembers() == 0 and IsPartyLeader() then ConvertToRaid() end
+end
+
+function WGInvite:AutoPromoteAssistants()
+    if IsRaidLeader() then
+        for i = 1, GetNumRaidMembers() do
+            local n, rank = GetRaidRosterInfo(i)
+            if n and rank == 0 and self.db.profile.assistants[n] then PromoteToAssistant(n) end
+        end
+    end
+end
+
+function WGInvite:DoDisbandRaid()
+    if not (IsRaidLeader() or IsPartyLeader()) then return end
+    if GetNumRaidMembers() > 0 then
+        for i = 1, 40 do
+            local n = GetRaidRosterInfo(i)
+            if n and n ~= UnitName("player") then UninviteUnit(n) end
+        end
+    else
+        for i = 1, GetNumPartyMembers() do
+            local n = GetPartyMember(i)
+            if n then UninviteUnit(n) end
+        end
+    end
+    LeaveParty()
+end
+
+function WGInvite:OpenConfig()
+    InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+    InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+end
