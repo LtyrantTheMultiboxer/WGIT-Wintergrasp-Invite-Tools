@@ -1,7 +1,7 @@
 -- REGISTER WITH ALL MIXINS
 WGInvite = LibStub("AceAddon-3.0"):NewAddon("WGInvite", "AceConsole-3.0", "AceEvent-3.0")
 
--- --- 1. UTILITY & TIMER LOGIC ---
+-- --- 1. TIMER & FORMATTING ---
 local function GetWGTimer()
     local wgTime = GetWintergraspWaitTime()
     if not wgTime or wgTime <= 0 then return "Active", true, false end
@@ -28,7 +28,6 @@ local function CreateStyledTimer()
     f:SetMinResize(100, 45)
     f:RegisterForDrag("LeftButton")
     
-    -- Resize Handle
     f.rb = CreateFrame("Button", nil, f)
     f.rb:SetPoint("BOTTOMRIGHT", -2, 2)
     f.rb:SetSize(16, 16)
@@ -36,11 +35,9 @@ local function CreateStyledTimer()
     f.rb:SetScript("OnMouseDown", function() if not WGInvite.db.profile.timerLocked then f:StartSizing() end end)
     f.rb:SetScript("OnMouseUp", function() f:StopMovingOrSizing() end)
 
-    -- Interaction Scripts
     f:SetScript("OnDragStart", function(self) if not WGInvite.db.profile.timerLocked then self:StartMoving() end end)
     f:SetScript("OnDragStop", f.StopMovingOrSizing)
     
-    -- Right-Click to Lock Toggle
     f:SetScript("OnMouseDown", function(self, button)
         if button == "RightButton" then
             WGInvite.db.profile.timerLocked = not WGInvite.db.profile.timerLocked
@@ -85,7 +82,7 @@ local defaults = {
         keyword = "inv, invite, wg",
         maxRank = 3, minLevel = 80,
         showTimerFrame = true,
-        timerLocked = false, -- NEW
+        timerLocked = false,
         timerOpacity = 0.6,
         timerColor = { r = 0, g = 0, b = 0 },
         autoJoinWG = true, autoRaid = true, autoAccept = true, 
@@ -95,7 +92,7 @@ local defaults = {
 }
 
 local options = {
-    name = "WGInvite Master Build v3.7",
+    name = "WGInvite Master Build v3.8",
     handler = WGInvite,
     type = "group",
     args = {
@@ -153,25 +150,48 @@ function WGInvite:OnInitialize()
     
     if not self.db.profile.showTimerFrame then self.TimerFrame:Hide() end
 
+    -- Minimap Icon with detailed Tooltip
     local LDB = LibStub("LibDataBroker-1.1"):NewDataObject("WGInvite", {
         type = "data source", text = "WGInvite",
         icon = "Interface\\Icons\\Ability_Warrior_OffensiveStance",
-        OnClick = function(_, b) if b == "RightButton" then WGInvite:DoMassInvite() else WGInvite:OpenConfig() end end,
+        OnClick = function(_, b) WGInvite:OpenConfig() end, -- Simplified click
         OnTooltipShow = function(t)
             t:AddLine("|cff00ff00WGInvite Master|r")
             t:AddDoubleLine("WG Timer:", "|cffffffff"..(GetWGTimer()).."|r")
+            t:AddLine(" ")
+            t:AddLine("|cffeda55fLeft-Click:|r Open Settings")
+            t:AddLine("|cffeda55fRight-Click Timer:|r Toggle Lock")
         end,
     })
     LibStub("LibDBIcon-1.0"):Register("WGInvite", LDB, self.db.profile.minimap)
-    self:Print("v3.7 Master Build Loaded. Right-Click timer to Lock/Unlock.")
+    
+    -- --- NEW RELIABLE AUTO-JOIN TICKER ---
+    -- We check every 1 second if the battleground popup is visible
+    self.joinTicker = self:ScheduleRepeatingTimer("CheckForWGPopup", 1)
+    
+    self:Print("v3.8 Master Build Loaded. /wgi for settings.")
 end
 
-function WGInvite:UpdateLockState()
-    if self.db.profile.timerLocked then
-        self.TimerFrame.rb:Hide()
-    else
-        self.TimerFrame.rb:Show()
+function WGInvite:CheckForWGPopup()
+    if not self.db.profile.autoJoinWG then return end
+    
+    -- Loop through potential static popups
+    for i = 1, STATICPOPUP_NUMDIALOGS do
+        local frame = _G["StaticPopup"..i]
+        if frame and frame:IsVisible() and frame.which == "GO_BATTLEGROUND" then
+            -- Verify it's Wintergrasp text
+            local text = _G["StaticPopup"..i.."Text"]:GetText()
+            if text and text:find("Wintergrasp") then
+                StaticPopup_OnClick(frame, 1) -- Click 'Join Battle'
+                self:Print("|cff00ff00Auto-Joined Wintergrasp!|r")
+            end
+        end
     end
+end
+
+-- [The rest of the functions: UpdateLockState, OnEnable, DoMassInvite, etc. remain the same]
+function WGInvite:UpdateLockState()
+    if self.db.profile.timerLocked then self.TimerFrame.rb:Hide() else self.TimerFrame.rb:Show() end
 end
 
 function WGInvite:OnEnable()
@@ -181,20 +201,11 @@ function WGInvite:OnEnable()
     self:RegisterEvent("RAID_ROSTER_UPDATE", "AutoPromoteAssistants")
     self:RegisterEvent("DUEL_REQUESTED")
     self:RegisterEvent("PLAYER_DEAD")
-    self:RegisterEvent("GO_BATTLEGROUND", "AutoQueueWG")
 end
-
--- --- 5. FUNCTIONALITY ---
 
 function WGInvite:OpenConfig()
     InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
     InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
-end
-
-function WGInvite:AutoQueueWG()
-    if self.db.profile.autoJoinWG and StaticPopup_Visible("GO_BATTLEGROUND") then
-        StaticPopup_OnClick(StaticPopup_Visible("GO_BATTLEGROUND"), 1)
-    end
 end
 
 function WGInvite:DoMassInvite()
