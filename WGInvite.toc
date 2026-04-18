@@ -1,9 +1,23 @@
 ## Interface: 30300
-## Title: WGInvite Master
-## Notes: Ultimate 3.3.5 Commander Suite
+## Title: WGInvite Master |cff00ff00v4.7|r
+## Notes: Wintergrasp Auto-Join, Precision Kill/Honor Tracker, and Raid Tools.
 ## Author: xLT69x
-## Version: 3.7
+## Version: 4.7
 ## SavedVariables: WGInviteDB
 
 embeds.xml
 WGInvite.lua
+
+
+# Libraries
+# Libs\LibStub\LibStub.lua
+# Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
+# Libs\AceAddon-3.0\AceAddon-3.0.xml
+# Libs\AceEvent-3.0\AceEvent-3.0.xml
+# Libs\AceTimer-3.0\AceTimer-3.0.xml
+# Libs\AceConsole-3.0\AceConsole-3.0.xml
+# Libs\AceGUI-3.0\AceGUI-3.0.xml
+# Libs\AceConfig-3.0\AceConfig-3.0.xml
+# Libs\AceDB-3.0\AceDB-3.0.xml
+# Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+# Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
