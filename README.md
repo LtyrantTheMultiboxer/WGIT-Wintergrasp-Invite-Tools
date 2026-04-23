@@ -56,8 +56,5 @@ Compatibility: WoW 3.3.5 (WotLK)
    - AddOns/WGInvite/WGInvite.toc
    - AddOns/WGInvite/WGInvite.lua
    - AddOns/WGInvite/Libs/
-
-===========================================
-4. PROJECT LUA (v4.7 MASTER)
-===========================================
-(Copy and paste the LUA code we generated into your WGInvite.lua file)
+  
+   - 
