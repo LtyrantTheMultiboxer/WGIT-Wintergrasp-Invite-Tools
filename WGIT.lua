@@ -15,7 +15,7 @@ local defaults = {
         timerLocked = false,
         timerOpacity = 0.6,
         timerColor = { r = 0, g = 0, b = 0 },
-        autoJoinWG = true, 
+        autoJoinWG = true,
         autoRaid = true, 
         autoAccept = true, 
         autoRelease = true, 
@@ -23,15 +23,17 @@ local defaults = {
         minimap = { hide = false, minimapPos = 220 },
         blacklist = {}, 
         assistants = {},
+        savedLayouts = {},
     }
 }
 
 -- --- 3. OPTIONS TABLE ---
 -- Stored on the addon object so modules (e.g. WGIT_About) can extend it before registration
 WGIT.options = {
-    name = "WGIT - Wintergrasp Invite Tools v1.0",
+    name = "WGIT - Wintergrasp Invite Tools v1.02",
     handler = WGIT,
     type = "group",
+    childGroups = "tree",
     args = {
         appearance = {
             type = "group", name = "Visuals", inline = true, order = 1,
@@ -52,19 +54,15 @@ WGIT.options = {
             },
         },
         tools = {
-            type = "group", name = "Raid Tools", inline = true, order = 3,
+            type = "group", name = "Raid Tools", order = 3,
             args = {
                 keyword = { type = "input", name = "Keywords", order = 1, get = function() return WGIT.db.profile.keyword end, set = function(_, v) WGIT.db.profile.keyword = v end },
                 massGuild = { type = "execute", name = "Mass Invite Guild", order = 2, func = "DoMassInvite" },
                 massFriends = { type = "execute", name = "Mass Invite Friends", order = 3, func = "DoFriendsInvite" },
                 disbandRaid = { type = "execute", name = "|cffff0000Disband Raid|r", order = 4, confirm = true, func = "DoDisbandRaid" },
-            },
-        },
-        lists = {
-            type = "group", name = "Management Lists", inline = true, order = 4,
-            args = {
-                assistants = { type = "input", name = "Auto-Assistants", multiline = 5, width = "full", order = 1, get = function() local n={}; for k in pairs(WGIT.db.profile.assistants) do table.insert(n,k) end; table.sort(n); return table.concat(n,"\n") end, set = function(_, v) wipe(WGIT.db.profile.assistants); for m in v:gmatch("%S+") do WGIT.db.profile.assistants[m:gsub("^%l", string.upper)] = true end end },
-                blacklist = { type = "input", name = "Blacklist", multiline = 5, width = "full", order = 2, get = function() local n={}; for k in pairs(WGIT.db.profile.blacklist) do table.insert(n,k) end; table.sort(n); return table.concat(n,"\n") end, set = function(_, v) wipe(WGIT.db.profile.blacklist); for m in v:gmatch("%S+") do WGIT.db.profile.blacklist[m:gsub("^%l", string.upper)] = true end end },
+                listsDivider = { type = "header", name = "Management Lists", order = 5 },
+                assistants = { type = "input", name = "Auto-Assistants", multiline = 5, width = "full", order = 6, get = function() local n={}; for k in pairs(WGIT.db.profile.assistants) do table.insert(n,k) end; table.sort(n); return table.concat(n,"\n") end, set = function(_, v) wipe(WGIT.db.profile.assistants); for m in v:gmatch("%S+") do WGIT.db.profile.assistants[m:gsub("^%l", string.upper)] = true end end },
+                blacklist = { type = "input", name = "Blacklist", multiline = 5, width = "full", order = 7, get = function() local n={}; for k in pairs(WGIT.db.profile.blacklist) do table.insert(n,k) end; table.sort(n); return table.concat(n,"\n") end, set = function(_, v) wipe(WGIT.db.profile.blacklist); for m in v:gmatch("%S+") do WGIT.db.profile.blacklist[m:gsub("^%l", string.upper)] = true end end },
             },
         },
     },
@@ -126,7 +124,7 @@ local function CreateStyledTimer()
 
     -- Reset Stats button
     f.resetBtn = CreateFrame("Button", nil, f)
-    f.resetBtn:SetSize(90, 16); f.resetBtn:SetPoint("TOPLEFT", 15, -80)
+    f.resetBtn:SetSize(78, 16); f.resetBtn:SetPoint("TOPLEFT", 15, -80)
     f.resetBtn:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 8})
     f.resetBtn:SetBackdropColor(0.4, 0, 0, 0.7)
     f.resetBtn.text = f.resetBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -136,6 +134,15 @@ local function CreateStyledTimer()
         sessionHonor = 0
         WGIT:Print("Session kills and honor reset.")
     end)
+
+    -- Raid Layout Manager button
+    f.layoutsBtn = CreateFrame("Button", nil, f)
+    f.layoutsBtn:SetSize(70, 16); f.layoutsBtn:SetPoint("TOPLEFT", 97, -80)
+    f.layoutsBtn:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 8})
+    f.layoutsBtn:SetBackdropColor(0, 0.2, 0.5, 0.8)
+    f.layoutsBtn.text = f.layoutsBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    f.layoutsBtn.text:SetPoint("CENTER"); f.layoutsBtn.text:SetText("|cff66aaff Layouts|r")
+    f.layoutsBtn:SetScript("OnClick", function() WGIT:ToggleLayoutManager() end)
 
     f.toggle = CreateFrame("Button", nil, f)
     f.toggle:SetSize(120, 18); f.toggle:SetPoint("BOTTOM", 0, 10)
@@ -164,11 +171,34 @@ end
 function WGIT:OnInitialize()
     self.db = LibStub("AceDB-3.0"):New("WGITDB", defaults, true)
     LibStub("AceConfig-3.0"):RegisterOptionsTable("WGIT", WGIT.options)
-    self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("WGIT", "WGIT")
+
+    -- Minimal stub for Interface > AddOns — just a launcher button.
+    local stubOptions = {
+        name = "WGIT", type = "group",
+        args = {
+            desc = {
+                type = "description", order = 1, fontSize = "medium",
+                name = "Wintergrasp Invite Tools\n\nClick the button below to open the full settings window.\n",
+            },
+            openBtn = {
+                type = "execute", order = 2,
+                name = "Open WGIT Config",
+                desc = "Opens the full WGIT settings window.",
+                func = function() WGIT:OpenConfig() end,
+            },
+        },
+    }
+    LibStub("AceConfig-3.0"):RegisterOptionsTable("WGIT_Blizz", stubOptions)
+    self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("WGIT_Blizz", "WGIT")
     
     self:RegisterChatCommand("wgi", "OpenConfig")
     self:RegisterChatCommand("wgreset", function() self.TimerFrame:ClearAllPoints(); self.TimerFrame:SetPoint("CENTER", 0, 0) end)
     self:RegisterChatCommand("wgshow", function() self.db.profile.minimap.hide = false; LibStub("LibDBIcon-1.0"):Show("WGIT") end)
+    self:RegisterChatCommand("wgsave", function(name) self:SaveRaidLayout(name) end)
+    self:RegisterChatCommand("wgrestore", function(name) self:RestoreRaidLayout(name) end)
+    self:RegisterChatCommand("wglayouts", function() self:ListRaidLayouts() end)
+    self:RegisterChatCommand("wgdellayout", function(name) self:DeleteRaidLayout(name) end)
+    self:RegisterChatCommand("wglm", function() self:ToggleLayoutManager() end)
     
     self.TimerFrame = CreateStyledTimer()
     self:UpdateLockState(); self:UpdateLockButtonText()
@@ -311,4 +341,4 @@ end
 
 function WGIT:UpdateLockState() if self.db.profile.timerLocked then self.TimerFrame.rb:Hide() else self.TimerFrame.rb:Show() end end
 function WGIT:UpdateLockButtonText() local c = self.db.profile.autoJoinWG and "|cff00ff00ON|r" or "|cffff0000OFF|r"; self.TimerFrame.toggle.text:SetText("Auto-Join: " .. c) end
-function WGIT:OpenConfig() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame); InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end
+function WGIT:OpenConfig() LibStub("AceConfigDialog-3.0"):Open("WGIT") end
