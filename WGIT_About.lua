@@ -3,10 +3,10 @@
 -- Loaded after WGIT.lua; extends WGIT.options before config is registered.
 
 WGIT.options.args.about = {
-    type = "group", name = "About", inline = true, order = 5,
+    type = "group", name = "About", order = 99,
     args = {
         header = {
-            type = "header", name = "WGIT - Wintergrasp Invite Tools v1.0", order = 1,
+            type = "header", name = "WGIT - Wintergrasp Invite Tools v1.02", order = 1,
         },
         desc1 = {
             type = "description", order = 2, fontSize = "medium",
