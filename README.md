@@ -1,6 +1,5 @@
 # WGIT — Wintergrasp Invite Tools
 <img width="193" height="138" alt="WGIT1 02 Demo" src="https://github.com/user-attachments/assets/5106895b-c4dc-4ccc-93e8-b1e501fe28b2" />
-Download the Latest [Here](https://github.com/LtyrantTheMultiboxer/WGIT-Wintergrasp-Invite-Tools/releases/download/WGIT1.02/WGIT1.02.rar)
 
 **Version:** 1.02
 **Author:** xLT69x
