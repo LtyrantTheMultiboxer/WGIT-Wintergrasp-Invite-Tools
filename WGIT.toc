@@ -1,8 +1,8 @@
 ## Interface: 30300
-## Title: WGIT -|cff00ff00v1.0|r
+## Title: WGIT -|cff00ff00v1.2|r
 ## Notes: Wintergrasp Auto-Join, Precision Kill/Honor Tracker, and Raid Tools.
 ## Author: xLT69x
-## Version: 1.0
+## Version: 1.2
 ## SavedVariables: WGITDB
 
 # Libraries
@@ -18,8 +18,11 @@ Libs\AceDB-3.0\AceDB-3.0.xml
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
 
+
 # Main File
 WGIT.lua
 
 # Modules
 WGIT_About.lua
+WGIT_RaidSave.lua
+WGIT_RaidLayoutFrame.lua
