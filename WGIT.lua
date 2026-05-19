@@ -90,6 +90,7 @@ local function CreateStyledTimer()
         tile = true, tileSize = 16, edgeSize = 12, insets = { left = 3, right = 3, top = 3, bottom = 3 }
     })
     f:SetMovable(true); f:EnableMouse(true); f:SetResizable(true); f:SetMinResize(140, 110)
+    f:SetClampedToScreen(true)
     f:RegisterForDrag("LeftButton")
     f:SetScript("OnDragStart", function(self) if not WGIT.db.profile.timerLocked then self:StartMoving() end end)
     f:SetScript("OnDragStop", f.StopMovingOrSizing)
