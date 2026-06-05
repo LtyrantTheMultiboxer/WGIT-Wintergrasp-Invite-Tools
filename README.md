@@ -1,4 +1,5 @@
 # WGIT — Wintergrasp Invite Tools
+<img width="1024" height="1024" alt="WGIT Logo" src="https://github.com/user-attachments/assets/dba5d936-cca2-4ba1-957d-96fd1a6f9991" />
 <img width="193" height="138" alt="WGIT1 02 Demo" src="https://github.com/user-attachments/assets/5106895b-c4dc-4ccc-93e8-b1e501fe28b2" />
 
 **Version:** 1.02
