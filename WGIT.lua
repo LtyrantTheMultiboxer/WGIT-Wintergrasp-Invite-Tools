@@ -2,9 +2,19 @@
 WGIT = LibStub("AceAddon-3.0"):NewAddon("WGIT", "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0")
 
 -- --- 1. DATA TRACKING ---
-local sessionKills = 0
-local sessionHonor = 0
+local seasonKills = 0
+local seasonHonor = 0
 local lastHKTime = 0
+local honorWarningSent = false  -- set true once the 70k warning fires per session
+
+local function FormatHonor(n)
+    if n >= 1000000 then
+        return string.format("%d,%03d,%03d", math.floor(n/1000000), math.floor((n%1000000)/1000), n%1000)
+    elseif n >= 1000 then
+        return string.format("%d,%03d", math.floor(n/1000), n%1000)
+    end
+    return tostring(n)
+end
 
 -- --- 2. DEFAULTS ---
 local defaults = {
@@ -24,6 +34,9 @@ local defaults = {
         blacklist = {}, 
         assistants = {},
         savedLayouts = {},
+        showKills = true,
+        showHonor = true,
+        honorCapWarning = true,
     }
 }
 
@@ -53,8 +66,16 @@ WGIT.options = {
                 declineDuels = { type = "toggle", name = "Auto-Decline Duels", order = 5, get = function() return WGIT.db.profile.declineDuels end, set = function(_, v) WGIT.db.profile.declineDuels = v end },
             },
         },
+        tracker = {
+            type = "group", name = "Kill & Honor Tracker", inline = true, order = 3,
+            args = {
+                showKills = { type = "toggle", name = "Show Season PvP Kills", order = 1, get = function() return WGIT.db.profile.showKills end, set = function(_, v) WGIT.db.profile.showKills = v end },
+                showHonor = { type = "toggle", name = "Show Season Honor", order = 2, get = function() return WGIT.db.profile.showHonor end, set = function(_, v) WGIT.db.profile.showHonor = v end },
+                honorCapWarning = { type = "toggle", name = "Honor Cap Warning at 70,000", desc = "Show a warning in chat when your honor reaches 70,000 (cap is 75,000)", order = 3, get = function() return WGIT.db.profile.honorCapWarning end, set = function(_, v) WGIT.db.profile.honorCapWarning = v end },
+            },
+        },
         tools = {
-            type = "group", name = "Raid Tools", order = 3,
+            type = "group", name = "Raid Tools", order = 4,
             args = {
                 keyword = { type = "input", name = "Keywords", order = 1, get = function() return WGIT.db.profile.keyword end, set = function(_, v) WGIT.db.profile.keyword = v end },
                 massGuild = { type = "execute", name = "Mass Invite Guild", order = 2, func = "DoMassInvite" },
@@ -83,7 +104,7 @@ end
 
 local function CreateStyledTimer()
     local f = CreateFrame("Frame", "WGITTimerFrame", UIParent)
-    f:SetSize(180, 130)
+    f:SetSize(180, 145)
     f:SetPoint("CENTER")
     f:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
@@ -123,22 +144,27 @@ local function CreateStyledTimer()
     f.statHonor = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     f.statHonor:SetPoint("TOPLEFT", 15, -62)
 
+    f.statHonorCap = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    f.statHonorCap:SetPoint("TOPLEFT", 15, -76)
+    f.statHonorCap:Hide()
+
     -- Reset Stats button
     f.resetBtn = CreateFrame("Button", nil, f)
-    f.resetBtn:SetSize(78, 16); f.resetBtn:SetPoint("TOPLEFT", 15, -80)
+    f.resetBtn:SetSize(78, 16); f.resetBtn:SetPoint("TOPLEFT", 15, -92)
     f.resetBtn:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 8})
     f.resetBtn:SetBackdropColor(0.4, 0, 0, 0.7)
     f.resetBtn.text = f.resetBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     f.resetBtn.text:SetPoint("CENTER"); f.resetBtn.text:SetText("|cffff8080Reset Stats|r")
     f.resetBtn:SetScript("OnClick", function()
-        sessionKills = 0
-        sessionHonor = 0
-        WGIT:Print("Session kills and honor reset.")
+        seasonKills = 0
+        seasonHonor = 0
+        honorWarningSent = false
+        WGIT:Print("Season kills and honor reset.")
     end)
 
     -- Raid Layout Manager button
     f.layoutsBtn = CreateFrame("Button", nil, f)
-    f.layoutsBtn:SetSize(70, 16); f.layoutsBtn:SetPoint("TOPLEFT", 97, -80)
+    f.layoutsBtn:SetSize(70, 16); f.layoutsBtn:SetPoint("TOPLEFT", 97, -92)
     f.layoutsBtn:SetBackdrop({bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border", edgeSize = 8})
     f.layoutsBtn:SetBackdropColor(0, 0.2, 0.5, 0.8)
     f.layoutsBtn.text = f.layoutsBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
@@ -158,9 +184,37 @@ local function CreateStyledTimer()
         if self.tick > 0.1 then -- Faster refresh for seconds
             local text, active, urgent = GetWGTimer()
             f.time:SetText(text)
-            f.statKills:SetText("Kills: |cffffffff"..sessionKills.."|r")
-            f.statHonor:SetText("Honor: |cffffffff"..sessionHonor.."|r")
             if active then f.time:SetTextColor(0, 1, 0) elseif urgent then f.time:SetTextColor(1, 0.2, 0) else f.time:SetTextColor(1, 1, 1) end
+
+            -- Season Kills display
+            if WGIT.db and WGIT.db.profile.showKills then
+                f.statKills:SetText("Season Kills: |cffffffff"..seasonKills.."|r")
+                f.statKills:Show()
+            else
+                f.statKills:Hide()
+            end
+
+            -- Season Honor display
+            if WGIT.db and WGIT.db.profile.showHonor then
+                local HONOR_CAP = 75000
+                if seasonHonor >= HONOR_CAP then
+                    f.statHonor:SetText("Season Honor: |cffff2222CAPPED!|r")
+                    f.statHonorCap:SetText("|cffff2222⚠ Honor Capped (75,000)|r")
+                    f.statHonorCap:Show()
+                elseif seasonHonor >= 70000 then
+                    f.statHonor:SetText("Season Honor: |cffffaa00"..FormatHonor(seasonHonor).."|r")
+                    f.statHonorCap:SetText("|cffffaa00⚠ Near Honor Cap!|r")
+                    f.statHonorCap:Show()
+                else
+                    f.statHonor:SetText("Season Honor: |cffffffff"..FormatHonor(seasonHonor).."|r")
+                    f.statHonorCap:Hide()
+                end
+                f.statHonor:Show()
+            else
+                f.statHonor:Hide()
+                f.statHonorCap:Hide()
+            end
+
             self.tick = 0
         end
     end)
@@ -219,8 +273,15 @@ function WGIT:OnInitialize()
             else
                 tt:AddDoubleLine("Wintergrasp:", "|cffffffff" .. wgText .. "|r")
             end
-            tt:AddDoubleLine("Session Kills:", "|cffffffff" .. sessionKills .. "|r")
-            tt:AddDoubleLine("Session Honor:", "|cffffffff" .. sessionHonor .. "|r")
+            if WGIT.db.profile.showKills then
+                tt:AddDoubleLine("Season Kills:", "|cffffffff" .. seasonKills .. "|r")
+            end
+            if WGIT.db.profile.showHonor then
+                local honorText = seasonHonor >= 75000 and "|cffff2222" .. FormatHonor(seasonHonor) .. " (CAPPED!)|r"
+                    or (seasonHonor >= 70000 and "|cffffaa00" .. FormatHonor(seasonHonor) .. " (Near Cap!)|r"
+                    or "|cffffffff" .. FormatHonor(seasonHonor) .. "|r")
+                tt:AddDoubleLine("Season Honor:", honorText)
+            end
             tt:AddLine(" ")
             local autoState = WGIT.db.profile.autoJoinWG and "|cff00ff00ON|r" or "|cffff0000OFF|r"
             tt:AddDoubleLine("Auto-Join WG:", autoState)
@@ -247,11 +308,10 @@ end
 -- --- 6. FEATURE LOGIC ---
 
 function WGIT:HandleKillCount()
-    if GetRealZoneText() == "Wintergrasp" then
-        if (GetTime() - lastHKTime > 0.5) then 
-            sessionKills = sessionKills + 1
-            lastHKTime = GetTime()
-        end
+    -- Track PvP kills anywhere (WG, BGs, world PvP, etc.)
+    if (GetTime() - lastHKTime > 0.5) then
+        seasonKills = seasonKills + 1
+        lastHKTime = GetTime()
     end
 end
 
@@ -260,9 +320,20 @@ function WGIT:ZONE_CHANGED_NEW_AREA()
 end
 
 function WGIT:CHAT_MSG_COMBAT_HONOR_GAIN(_, msg)
-    if GetRealZoneText() == "Wintergrasp" then
-        local amount = tonumber(msg:match("%d+"))
-        if amount then sessionHonor = sessionHonor + amount end
+    -- Track honor everywhere (BGs, WG, world PvP, etc.)
+    local amount = tonumber(msg:match("%d+"))
+    if amount then
+        local prevHonor = seasonHonor
+        seasonHonor = seasonHonor + amount
+        -- One-time 70k warning
+        if self.db.profile.honorCapWarning and not honorWarningSent and prevHonor < 70000 and seasonHonor >= 70000 then
+            honorWarningSent = true
+            self:Print("|cffffaa00⚠ WARNING: Your Season Honor is at " .. FormatHonor(seasonHonor) .. " — approaching the 75,000 cap! Consider spending it.|r")
+        end
+        -- Cap notification
+        if self.db.profile.honorCapWarning and prevHonor < 75000 and seasonHonor >= 75000 then
+            self:Print("|cffff2222⚠ HONOR CAPPED! You have reached 75,000 Honor Points. Spend your honor to continue earning.|r")
+        end
     end
 end
 
